@@ -4,6 +4,8 @@ package
 	import flash.display.Sprite;
 	import flash.display.StageAlign;
 	import flash.display.StageScaleMode;
+	import flash.events.Event;
+	import flash.events.MouseEvent;
 	import flash.filesystem.File;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
@@ -12,6 +14,8 @@ package
 	import dragonBones.animation.WorldClock;
 	import dragonBones.factorys.StarlingFactory;
 	import dragonBones.objects.SkeletonData;
+	
+	import fl.data.DataProvider;
 	
 	import harayoki.starling.DropFileDetector;
 	
@@ -83,30 +87,38 @@ package
 			if(!_ui) return;
 			
 			_ui.comboArmature.enabled = _state != STATE_INIT;
+			_ui.comboAnimation.enabled = _state != STATE_INIT;
+			_ui.radio1.enabled = 
+				_ui.radio2.enabled = 
+				_ui.radio3.enabled =  _state != STATE_INIT;
 		}
 		
 		public function Main()
 		{
 			_ui = new uiAll();
 			Objects.rootSprite.addChild(_ui);
+			_ui.comboArmature.addEventListener(flash.events.Event.CHANGE,_handleArmatureChange);
+			_ui.comboAnimation.addEventListener(flash.events.Event.CHANGE,_handleAnimationChange);
+			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleLocationChange);
+			_ui.btnReplay.addEventListener(MouseEvent.CLICK,_handleReplayClick);
 			
 			state = STATE_INIT;
 			
-			addEventListener(Event.ADDED_TO_STAGE,_handleAddedToStage);
+			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
 		}
 		
 		private function _handleAddedToStage():void
 		{
 			stage.color = Objects.stage.color;
 			stage.alpha = 0.999999;
-			stage.addEventListener(Event.RESIZE,_handleStageResize);
+			stage.addEventListener(starling.events.Event.RESIZE,_handleStageResize);
 			_starling.start();		
 			
 			_handleStageResize();
 			
 			var self:starling.display.Sprite = this;
 			var o:InteractiveObject = DropFileDetector.createStageSizeDropTarget(Objects.stage);
-			Objects.rootSprite.addChild(o);
+			Objects.rootSprite.addChildAt(o,0);
 			
 			var dfd:DropFileDetector = new DropFileDetector(o);
 			//dfd.extensionFilter.push("png");
@@ -118,16 +130,15 @@ package
 			});
 			dfd.start();
 			
-			function handleEnterFrame(ev:Event):void
+			function handleEnterFrame(ev:starling.events.Event):void
 			{
 				WorldClock.clock.advanceTime(-1);
 			}
-			stage.addEventListener(Event.ENTER_FRAME,handleEnterFrame);
-			
+			stage.addEventListener(starling.events.Event.ENTER_FRAME,handleEnterFrame);
 			
 		}
 		
-		private function _handleStageResize(ev:Event=null):void
+		private function _handleStageResize(ev:starling.events.Event=null):void
 		{
 			var w:int = Objects.stage.stageWidth;
 			var h:int = Objects.stage.stageHeight
@@ -140,6 +151,8 @@ package
 		
 		private function _loadAssets():void
 		{
+			_removeArmature();
+			
 			if(!_assetManager)
 			{
 				_assetManager = new AssetManager();
@@ -166,7 +179,7 @@ package
 				_factory.dispose(true);
 			}
 			_factory = new StarlingFactory();			
-			_factory.addEventListener(Event.COMPLETE, handleParseComplete);
+			_factory.addEventListener(flash.events.Event.COMPLETE, handleParseComplete);
 			_factory.parseData(_assetManager.getByteArray(_getFileId()));
 
 		}
@@ -182,15 +195,76 @@ package
 			state = STATE_ARMATURE_VIEW;
 			var skeletonData:SkeletonData = _factory.getSkeletonData(_getFileId());
 			var armatureNames:Vector.<String> = skeletonData.armatureNames;
+			var arr:Array = [];
+			for(var i:int=0;i<armatureNames.length;i++)
+			{
+				arr.push(armatureNames[i]);
+			}
+			_ui.comboArmature.dataProvider = new DataProvider(arr);
+			_createArmature(_ui.comboArmature.selectedLabel);
 			
+			_updateComboAnimationSelection();
 			
 		}
 		
-		private function _createArmature(name:String):void
+		private function _handleArmatureChange(ev:flash.events.Event):void
 		{
+			//trace(_ui.comboArmature.selectedLabel);
+			_removeArmature();
+			_createArmature(_ui.comboArmature.selectedLabel);
+			_updateComboAnimationSelection();
 			
-			x = 0;
-			y = 0;
+			if(_currentArm && _currentArm.animation && _currentArm.animation.animationList.length>0)
+			{
+				_currentArm.animation.gotoAndPlay(_currentArm.animation.animationList[0]);
+			}
+			
+		}
+		
+		private function _handleAnimationChange(ev:flash.events.Event=null):void
+		{
+			trace(_ui.comboAnimation.selectedLabel);
+			if(_currentArm && _currentArm.animation)
+			{
+				_currentArm.animation.stop();
+				_currentArm.animation.gotoAndPlay(_ui.comboAnimation.selectedLabel);
+			}
+		}
+		
+		private function _handleLocationChange(ev:flash.events.Event):void
+		{
+			trace(_ui.radio1.group.selection.label);
+			_locateCurrentArmature();
+		}
+		
+		private function _handleReplayClick(ev:flash.events.Event):void
+		{
+			_handleAnimationChange();
+		}
+		
+		private function _updateComboAnimationSelection():void
+		{
+			if(_currentArm)
+			{
+				var arr:Array = [];
+				var anims:Vector.<String> = _currentArm.animation.animationList;
+				for(var i:int=0;i<anims.length;i++)
+				{
+					arr.push(anims[i]);
+				}
+				_ui.comboAnimation.dataProvider = new DataProvider(arr);
+				_ui.comboAnimation.enabled = true;
+			}
+			else
+			{
+				_ui.comboAnimation.dataProvider = new DataProvider([]);
+				_ui.comboAnimation.enabled = false;
+			}
+			
+		}
+		
+		private function _removeArmature():void
+		{
 			if(_currentArm)
 			{
 				WorldClock.clock.remove(_currentArm);				
@@ -202,6 +276,13 @@ package
 				_currentArm = null;
 			}
 			
+		}
+		
+		private function _createArmature(name:String):void
+		{
+			
+			x = 0;
+			y = 0;
 			var arm:Armature = _factory.buildArmature(name);
 			if(!arm)
 			{
@@ -212,11 +293,39 @@ package
 			{
 				_currentArm = arm;
 				WorldClock.clock.add(arm);
-				var dobj:DisplayObject = arm.display as DisplayObject;
-				dobj.x = CONTENTS_WIDTH>>1;
-				dobj.y = CONTENTS_HEIGHT>>1;
+				var dobj:DisplayObject = _currentArm.display as DisplayObject;
 				addChild(dobj);
+				_locateCurrentArmature();
+			}
+		}
+		
+		private function _locateCurrentArmature():void
+		{
+			if(_currentArm)
+			{
+				var dobj:DisplayObject = _currentArm.display as DisplayObject;
 				
+				dobj.x = CONTENTS_WIDTH >> 1;
+				dobj.y = CONTENTS_HEIGHT >> 1;
+				
+				switch(true)
+				{
+					case _ui.radio1.selected:
+					{
+						break;
+					}
+					case _ui.radio2.selected:
+					{
+						dobj.x -= (dobj.width >> 1);
+						dobj.y -= (dobj.height >> 1);
+						break;
+					}
+					case _ui.radio3.selected:
+					{
+						dobj.y -= dobj.height;
+						break;
+					}
+				}
 			}
 		}
 		

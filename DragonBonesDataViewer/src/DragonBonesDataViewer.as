@@ -3,7 +3,7 @@ package
 	import flash.display.Sprite;
 	
 	
-	[SWF(framerate=60,width=640,height=960)]
+	[SWF(framerate=60,width=640,height=960,backgroundColor="#dddddd")]
 	public class DragonBonesDataViewer extends Sprite
 	{
 		public function DragonBonesDataViewer()
