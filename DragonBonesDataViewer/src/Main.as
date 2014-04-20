@@ -1,20 +1,12 @@
 package
 {
 	import flash.display.InteractiveObject;
-	import flash.display.SimpleButton;
 	import flash.display.Sprite;
 	import flash.display.StageAlign;
 	import flash.display.StageScaleMode;
-	import flash.events.FocusEvent;
-	import flash.events.KeyboardEvent;
-	import flash.events.MouseEvent;
 	import flash.filesystem.File;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
-	import flash.text.TextFieldAutoSize;
-	import flash.text.TextFieldType;
-	import flash.text.TextFormat;
-	import flash.ui.Keyboard;
 	
 	import dragonBones.Armature;
 	import dragonBones.animation.WorldClock;
@@ -48,10 +40,14 @@ package
 		private var _catCount:int = 0;
 		private var _countTf:TextField;
 		private var _targetFile:File;
-		private var _inputTf:TextField;
 		
-		private var _btnCnt:int = 0;
 		private var _currentArm:Armature;
+		
+		private var _ui:uiAll;
+		
+		private var _state:int = -1;
+		private static const STATE_INIT:int = 0;
+		private static const STATE_ARMATURE_VIEW:int = 1;
 		
 		/**
 		 * ここから動作スタート
@@ -67,14 +63,35 @@ package
 			
 			_starling = new Starling(Main,Objects.stage,new Rectangle(0,0,CONTENTS_WIDTH,CONTENTS_HEIGHT));
 			_starling.showStats = true;
-			_starling.showStatsAt("right","top",2);		
+			_starling.showStatsAt("right","bottom",2);		
 			
+		}
+		
+		private function get state():int
+		{
+			return _state;
+		}
+		private function set state(value:int):void
+		{
+			if(_state == value) return;
+			_state = value;
+			_updateView();
+		}
+		
+		private function _updateView():void
+		{
+			if(!_ui) return;
+			
+			_ui.comboArmature.enabled = _state != STATE_INIT;
 		}
 		
 		public function Main()
 		{
+			_ui = new uiAll();
+			Objects.rootSprite.addChild(_ui);
 			
-			_factory = new StarlingFactory();			
+			state = STATE_INIT;
+			
 			addEventListener(Event.ADDED_TO_STAGE,_handleAddedToStage);
 		}
 		
@@ -90,69 +107,16 @@ package
 			var self:starling.display.Sprite = this;
 			var o:InteractiveObject = DropFileDetector.createStageSizeDropTarget(Objects.stage);
 			Objects.rootSprite.addChild(o);
-			o.addEventListener(MouseEvent.MOUSE_DOWN,function(ev:MouseEvent):void
-			{
-				if(!ev.shiftKey) return;
-				var xx:Number = ev.stageX;
-				var yy:Number = ev.stageY;
-				var f1:Function = function(ev:MouseEvent):void{
-					self.x += (ev.stageX - xx);
-					self.y += (ev.stageY - yy);
-					xx = ev.stageX;
-					yy = ev.stageY;
-				};
-				var f2:Function = function(ev:MouseEvent):void{
-					Objects.stage.removeEventListener(MouseEvent.MOUSE_MOVE,f1);
-					o.removeEventListener(MouseEvent.MOUSE_UP,f2);
-				};
-				Objects.stage.addEventListener(MouseEvent.MOUSE_MOVE,f1);
-				o.addEventListener(MouseEvent.MOUSE_UP,f2);
-			});
+			
 			var dfd:DropFileDetector = new DropFileDetector(o);
 			//dfd.extensionFilter.push("png");
 			dfd.extensionFilter.push("dbswf");
+			
 			dfd.onDrop.add(function():void{
 				_targetFile = dfd.lastDropFiles[0];
 				_loadAssets();
 			});
 			dfd.start();
-			
-			_inputTf = _createTf("drag & drop png file",24,0xcccccc);
-			_inputTf.width = 500;
-			_inputTf.type = TextFieldType.DYNAMIC;
-			_inputTf.autoSize = TextFieldAutoSize.NONE;
-			_inputTf.x = _inputTf.y = 10;			
-			Objects.rootSprite.addChild(_inputTf);
-			
-			var handleFocus:Function = function(ev:FocusEvent):void
-			{
-				_inputTf.removeEventListener(FocusEvent.FOCUS_IN,handleFocus);
-				var tft:TextFormat = _inputTf.defaultTextFormat;
-				tft.color = 0x111111;
-				_inputTf.defaultTextFormat = tft;
-				_inputTf.text = "";
-			}
-			_inputTf.addEventListener(FocusEvent.FOCUS_IN,handleFocus);
-			
-			_inputTf.addEventListener(KeyboardEvent.KEY_UP,function(ev:KeyboardEvent):void{
-				if(ev.keyCode == Keyboard.ENTER)
-				{
-					_createArmature(_inputTf.text);
-					_inputTf.text = "";
-				}
-			});
-			
-			_inputTf.visible = true;
-			_inputTf.border = false;
-			_inputTf.selectable = false;
-			_inputTf.mouseEnabled = false;
-			
-			var tf:TextField = _createTf("# shift & drag to move stage\n# press up or down to select armature automatically.",24,0xcccccc);
-			tf.x = 10;
-			tf.y = CONTENTS_HEIGHT - 80;
-			tf.mouseEnabled = tf.selectable = false;
-			Objects.rootSprite.addChild(tf);
-			
 			
 			function handleEnterFrame(ev:Event):void
 			{
@@ -176,10 +140,11 @@ package
 		
 		private function _loadAssets():void
 		{
-			_inputTf.visible = false;
-			
-			_assetManager = new AssetManager();
-			_assetManager.verbose = true;
+			if(!_assetManager)
+			{
+				_assetManager = new AssetManager();
+				_assetManager.verbose = true;
+			}
 			_assetManager.enqueue(_targetFile);
 			_assetManager.loadQueue(function(num:Number):void{
 				if(num==1.0)
@@ -192,14 +157,17 @@ package
 		
 		private function _initTest():void
 		{
-			
 			function handleParseComplete():void
 			{
 				_startTest();
 			}
-			
+			if(_factory)
+			{
+				_factory.dispose(true);
+			}
+			_factory = new StarlingFactory();			
 			_factory.addEventListener(Event.COMPLETE, handleParseComplete);
-			var skeletonData:SkeletonData = _factory.parseData(_assetManager.getByteArray(_getFileId()));
+			_factory.parseData(_assetManager.getByteArray(_getFileId()));
 
 		}
 		
@@ -211,13 +179,11 @@ package
 		
 		private function _startTest():void
 		{
-			_btnCnt = -1;
-			_inputTf.visible = true;
-			_inputTf.text = "Enter armature name here, then press enter.";
-			_inputTf.type = TextFieldType.INPUT;
-			_inputTf.border = true;
-			_inputTf.selectable = true;
-			_inputTf.mouseEnabled = true;
+			state = STATE_ARMATURE_VIEW;
+			var skeletonData:SkeletonData = _factory.getSkeletonData(_getFileId());
+			var armatureNames:Vector.<String> = skeletonData.armatureNames;
+			
+			
 		}
 		
 		private function _createArmature(name:String):void
@@ -252,29 +218,6 @@ package
 				addChild(dobj);
 				
 			}
-		}
-		
-		private function _createTextButton(text:String,handler:Function,xx:int,yy:int):SimpleButton
-		{			
-			var tf:TextField = _createTf(text);
-			tf.border = true;
-			tf.background = true;
-			tf.backgroundColor = 0xdddddd;
-			var btn:SimpleButton = new SimpleButton(tf,tf,tf,tf);
-			btn.x = xx - (btn.width>>1);
-			btn.y = yy;
-			btn.useHandCursor = true;
-			btn.addEventListener(MouseEvent.CLICK,handler);
-			return btn;
-		}
-		
-		private function _createTf(text:String="",size:int=24,color:uint=0x222222):TextField
-		{
-			var tf:TextField = new TextField();
-			tf.defaultTextFormat = new TextFormat("_sans",size,color);
-			tf.autoSize = TextFieldAutoSize.LEFT;
-			tf.text = text;
-			return tf;
 		}
 		
 	}
