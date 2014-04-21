@@ -55,6 +55,7 @@ package
 		private var _ui:uiAll;
 		private var _bgQuad:Quad;
 		private var _borderQuad:Quad;
+		private var _centerQuad:Quad;
 		
 		private var _state:int = -1;
 		private static const STATE_INIT:int = 0;
@@ -74,7 +75,7 @@ package
 			
 			_starling = new Starling(Main,Objects.stage,new Rectangle(0,0,CONTENTS_WIDTH,CONTENTS_HEIGHT));
 			_starling.showStats = true;
-			_starling.showStatsAt("right","bottom",2);		
+			_starling.showStatsAt("left","bottom",2);		
 			
 		}
 		
@@ -112,7 +113,8 @@ package
 			_handleScaleChange();
 			_ui.pickerBgColor.addEventListener(ColorPickerEvent.CHANGE,_handleBgColorChange);
 			_ui.cbLowercaseHide.addEventListener(flash.events.Event.CHANGE,_handleLowercaseCheckChange)
-			_ui.cbBorder.addEventListener(flash.events.Event.CHANGE,_handleBorderVisibleChange);
+			_ui.cbBorderShow.addEventListener(flash.events.Event.CHANGE,_handleBorderVisibleChange);
+			_ui.cbCenterShow.addEventListener(flash.events.Event.CHANGE,_handleCenterPointVisibleChange);
 			
 			state = STATE_INIT;
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
@@ -131,6 +133,12 @@ package
 			_bgQuad.y = 0;
 			addChild(_bgQuad);
 			
+			_centerQuad = new Quad(8,8,0xccccff);
+			_centerQuad.x = 0;
+			_centerQuad.y = 0;
+			_centerQuad.pivotX = -4;
+			_centerQuad.pivotY = -4;
+			addChild(_centerQuad);			
 			_handleStageResize();
 			
 			var self:starling.display.Sprite = this;
@@ -330,6 +338,11 @@ package
 			_updateBorderQuad();
 		}
 		
+		private function _handleCenterPointVisibleChange(ev:flash.events.Event=null):void
+		{
+			_centerQuad.visible = _ui.cbCenterShow.selected;
+		}
+		
 		private function _updateComboAnimationSelection():void
 		{
 			if(_currentArm)
@@ -393,6 +406,7 @@ package
 			if(_currentArm)
 			{
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
+				var rect:Rectangle = dobj.getBounds(dobj.parent);
 				
 				switch(true)
 				{
@@ -400,8 +414,8 @@ package
 					{
 						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
 						dobj.y = _bgQuad.y + (BG_HEIGHT >> 1);
-						dobj.pivotX = dobj.width >> 1;
-						dobj.pivotY = dobj.height >> 1;
+						//dobj.pivotX = dobj.width >> 1;
+						//dobj.pivotY = dobj.height >> 1;
 						break;
 					}
 					case _ui.radio2.selected:
@@ -416,13 +430,18 @@ package
 					{
 						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
 						dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
-						dobj.pivotX = dobj.width >> 1;
-						dobj.y +=  dobj.height;
+							//dobj.pivotX = dobj.width >> 1;
+							//dobj.y +=  dobj.height;
 						break;
 					}
 				}
 				
 				_updateBorderQuad();
+				
+				_centerQuad.x = dobj.x;
+				_centerQuad.y = dobj.y;
+				_handleCenterPointVisibleChange();
+				addChild(_centerQuad);
 			}
 		}
 		
@@ -437,7 +456,7 @@ package
 			var dobj:DisplayObject = _currentArm.display as DisplayObject;
 			
 			if(!dobj) return;
-			if(!_ui.cbBorder.selected) return;
+			if(!_ui.cbBorderShow.selected) return;
 			
 			var rect:Rectangle = dobj.getBounds(dobj.parent);
 			
