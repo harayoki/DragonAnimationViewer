@@ -16,6 +16,7 @@ package
 	import dragonBones.objects.SkeletonData;
 	
 	import fl.data.DataProvider;
+	import fl.events.SliderEvent;
 	
 	import harayoki.starling.DropFileDetector;
 	
@@ -99,16 +100,18 @@ package
 			Objects.rootSprite.addChild(_ui);
 			_ui.comboArmature.addEventListener(flash.events.Event.CHANGE,_handleArmatureChange);
 			_ui.comboAnimation.addEventListener(flash.events.Event.CHANGE,_handleAnimationChange);
-			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleLocationChange);
+			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleBaePositionChange);
 			_ui.btnReplay.addEventListener(MouseEvent.CLICK,_handleReplayClick);
+			_ui.sliderScale.addEventListener(SliderEvent.CHANGE,_handleScaleChange);
+			_handleScaleChange();
 			
 			state = STATE_INIT;
-			
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
 		}
 		
 		private function _handleAddedToStage():void
 		{
+			
 			stage.color = Objects.stage.color;
 			stage.alpha = 0.999999;
 			stage.addEventListener(starling.events.Event.RESIZE,_handleStageResize);
@@ -219,6 +222,9 @@ package
 				_currentArm.animation.gotoAndPlay(_currentArm.animation.animationList[0]);
 			}
 			
+			//_ui.sliderScale.value = 1.0;
+			_handleScaleChange();
+			
 		}
 		
 		private function _handleAnimationChange(ev:flash.events.Event=null):void
@@ -231,7 +237,7 @@ package
 			}
 		}
 		
-		private function _handleLocationChange(ev:flash.events.Event):void
+		private function _handleBaePositionChange(ev:flash.events.Event):void
 		{
 			trace(_ui.radio1.group.selection.label);
 			_locateCurrentArmature();
@@ -240,6 +246,19 @@ package
 		private function _handleReplayClick(ev:flash.events.Event):void
 		{
 			_handleAnimationChange();
+		}
+		
+		private function _handleScaleChange(ev:SliderEvent=null):void
+		{
+			if(_ui.txtScale && _ui.sliderScale)
+			{
+				_ui.txtScale.text = _ui.sliderScale.value+"";
+			}
+			if(_currentArm && _currentArm.display is DisplayObject)
+			{
+				(_currentArm.display as DisplayObject).scaleX = _ui.sliderScale.value;
+				(_currentArm.display as DisplayObject).scaleY = _ui.sliderScale.value;
+			}
 		}
 		
 		private function _updateComboAnimationSelection():void
@@ -306,7 +325,7 @@ package
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
 				
 				dobj.x = CONTENTS_WIDTH >> 1;
-				dobj.y = CONTENTS_HEIGHT >> 1;
+				dobj.y = CONTENTS_HEIGHT *0.65;
 				
 				switch(true)
 				{
