@@ -16,12 +16,14 @@ package
 	import dragonBones.objects.SkeletonData;
 	
 	import fl.data.DataProvider;
+	import fl.events.ColorPickerEvent;
 	import fl.events.SliderEvent;
 	
 	import harayoki.starling.DropFileDetector;
 	
 	import starling.core.Starling;
 	import starling.display.DisplayObject;
+	import starling.display.Quad;
 	import starling.display.Sprite;
 	import starling.events.Event;
 	import starling.utils.AssetManager;
@@ -35,8 +37,10 @@ package
 	 */
 	public class Main extends starling.display.Sprite
 	{
-		private static const CONTENTS_WIDTH:int = 640;
+		private static const CONTENTS_WIDTH:int = 1280;
 		private static const CONTENTS_HEIGHT:int = 960;
+		private static const BG_WIDTH:int = 640;
+		private static const BG_HEIGHT:int = 960;
 		private static var _starling:Starling;
 		
 		private var _assetManager:AssetManager;
@@ -49,6 +53,8 @@ package
 		private var _currentArm:Armature;
 		
 		private var _ui:uiAll;
+		private var _bgQuad:Quad;
+		private var _borderQuad:Quad;
 		
 		private var _state:int = -1;
 		private static const STATE_INIT:int = 0;
@@ -104,6 +110,9 @@ package
 			_ui.btnReplay.addEventListener(MouseEvent.CLICK,_handleReplayClick);
 			_ui.sliderScale.addEventListener(SliderEvent.CHANGE,_handleScaleChange);
 			_handleScaleChange();
+			_ui.pickerBgColor.addEventListener(ColorPickerEvent.CHANGE,_handleBgColorChange);
+			_ui.cbLowercaseHide.addEventListener(flash.events.Event.CHANGE,_handleLowercaseCheckChange)
+			_ui.cbBorder.addEventListener(flash.events.Event.CHANGE,_handleBorderVisibleChange);
 			
 			state = STATE_INIT;
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
@@ -115,7 +124,12 @@ package
 			stage.color = Objects.stage.color;
 			stage.alpha = 0.999999;
 			stage.addEventListener(starling.events.Event.RESIZE,_handleStageResize);
-			_starling.start();		
+			_starling.start();
+			
+			_bgQuad = new Quad(BG_WIDTH,BG_HEIGHT,0xffffff);
+			_bgQuad.x = 640;
+			_bgQuad.y = 0;
+			addChild(_bgQuad);
 			
 			_handleStageResize();
 			
@@ -124,7 +138,7 @@ package
 			Objects.rootSprite.addChildAt(o,0);
 			
 			var dfd:DropFileDetector = new DropFileDetector(o);
-			//dfd.extensionFilter.push("png");
+			dfd.extensionFilter.push("png");
 			dfd.extensionFilter.push("dbswf");
 			
 			dfd.onDrop.add(function():void{
@@ -201,12 +215,49 @@ package
 			var arr:Array = [];
 			for(var i:int=0;i<armatureNames.length;i++)
 			{
-				arr.push(armatureNames[i]);
+				var armatureName:String = armatureNames[i];
+				var temp:Array = armatureName.split("/");
+				var name:String = temp[temp.length-1];//ライブラリパスのディレクトリを除いたもの
+				if(_ui.cbLowercaseHide.selected)
+				{
+					var lc:Boolean = _hasLowerCase(name);
+					if(!lc)
+					{
+						arr.push(armatureName);
+					}
+				}
+				else
+				{
+					arr.push(armatureName);
+				}
 			}
-			_ui.comboArmature.dataProvider = new DataProvider(arr);
-			_ui.comboArmature.selectedIndex = 0;
+			
+			if(arr.length>0)
+			{
+				_ui.comboArmature.dataProvider = new DataProvider(arr);
+				_ui.comboArmature.selectedIndex = 0;
+			}
+			else
+			{
+				_ui.comboArmature.dataProvider = new DataProvider([]);
+				_ui.comboArmature.selectedIndex = 0;
+			}
 			
 			_handleArmatureChange();			
+		}
+		
+		private function _hasLowerCase(str:String):Boolean
+		{
+			var i:int = str.length;
+			while(i--)
+			{
+				///a ... 97, x ... 120
+				if(str.charCodeAt(i)>=97 && str.charCodeAt(i)<=120)
+				{
+					return true;
+				}
+			}
+			return false;
 		}
 		
 		private function _handleArmatureChange(ev:flash.events.Event=null):void
@@ -257,7 +308,26 @@ package
 			{
 				(_currentArm.display as DisplayObject).scaleX = _ui.sliderScale.value;
 				(_currentArm.display as DisplayObject).scaleY = _ui.sliderScale.value;
+				
+				_updateBorderQuad();
+				
 			}
+		}
+		
+		private function _handleBgColorChange(ev:ColorPickerEvent):void
+		{
+			var color:uint = _ui.pickerBgColor.selectedColor;
+			_bgQuad.color = color;
+		}
+		
+		private function _handleLowercaseCheckChange(ev:flash.events.Event):void
+		{
+			_startTest();
+		}
+		
+		private function _handleBorderVisibleChange(ev:flash.events.Event):void
+		{
+			_updateBorderQuad();
 		}
 		
 		private function _updateComboAnimationSelection():void
@@ -324,28 +394,61 @@ package
 			{
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
 				
-				dobj.x = CONTENTS_WIDTH >> 1;
-				dobj.y = CONTENTS_HEIGHT *0.65;
-				
 				switch(true)
 				{
 					case _ui.radio1.selected:
 					{
+						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
+						dobj.y = _bgQuad.y + (BG_HEIGHT >> 1);
+						dobj.pivotX = dobj.width >> 1;
+						dobj.pivotY = dobj.height >> 1;
 						break;
 					}
 					case _ui.radio2.selected:
 					{
-						dobj.x -= (dobj.width >> 1);
-						dobj.y -= (dobj.height >> 1);
+						dobj.x = _bgQuad.x +  ((BG_WIDTH - dobj.width) >> 1);
+						dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
+						dobj.pivotX = 0;
+						dobj.pivotY = 0;
 						break;
 					}
 					case _ui.radio3.selected:
 					{
-						dobj.y -= dobj.height;
+						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
+						dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
+						dobj.pivotX = dobj.width >> 1;
+						dobj.y +=  dobj.height;
 						break;
 					}
 				}
+				
+				_updateBorderQuad();
 			}
+		}
+		
+		private function _updateBorderQuad():void
+		{
+			
+			if(_borderQuad)
+			{
+				_borderQuad.removeFromParent(true);
+			}
+			
+			var dobj:DisplayObject = _currentArm.display as DisplayObject;
+			
+			if(!dobj) return;
+			if(!_ui.cbBorder.selected) return;
+			
+			var rect:Rectangle = dobj.getBounds(dobj.parent);
+			
+			_borderQuad = new Quad(rect.width,rect.height,0xff0000);
+			_borderQuad.alpha = 0.2;
+			
+			addChildAt(_borderQuad,getChildIndex(dobj));
+			
+			_borderQuad.x = rect.x;
+			_borderQuad.y = rect.y;
+			
 		}
 		
 	}
