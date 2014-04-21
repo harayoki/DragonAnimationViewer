@@ -1,0 +1,1 @@
+adt -sign -storetype pkcs12 -keystore hoge.p12 DragonBonesDataViewer.airi DragonBonesDataViewer.air
