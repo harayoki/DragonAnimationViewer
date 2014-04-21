@@ -11,14 +11,18 @@ package
 	import flash.text.TextField;
 	
 	import dragonBones.Armature;
+	import dragonBones.Bone;
+	import dragonBones.animation.AnimationState;
 	import dragonBones.animation.WorldClock;
 	import dragonBones.factorys.StarlingFactory;
+	import dragonBones.objects.DBTransform;
 	import dragonBones.objects.SkeletonData;
 	
 	import fl.data.DataProvider;
 	import fl.events.ColorPickerEvent;
 	import fl.events.SliderEvent;
 	
+	import harayoki.dragonbones.DragonBonesUtil;
 	import harayoki.starling.DropFileDetector;
 	
 	import starling.core.Starling;
@@ -97,10 +101,6 @@ package
 			
 			_ui.comboArmature.enabled = _state != STATE_INIT;
 			_ui.comboAnimation.enabled = _state != STATE_INIT;
-			//_ui.radio1.enabled = 
-			//	_ui.radio2.enabled = 
-			//	_ui.radio3.enabled =  _state != STATE_INIT;
-			
 		}
 		
 		public function Main()
@@ -109,7 +109,6 @@ package
 			Objects.rootSprite.addChild(_ui);
 			_ui.comboArmature.addEventListener(flash.events.Event.CHANGE,_handleArmatureChange);
 			_ui.comboAnimation.addEventListener(flash.events.Event.CHANGE,_handleAnimationChange);
-			//_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleBaePositionChange);
 			_ui.btnReplay.addEventListener(MouseEvent.CLICK,_handleReplayClick);
 			_ui.sliderScale.addEventListener(SliderEvent.CHANGE,_handleScaleChange);
 			_handleScaleChange();
@@ -117,6 +116,8 @@ package
 			_ui.cbLowercaseHide.addEventListener(flash.events.Event.CHANGE,_handleLowercaseCheckChange)
 			_ui.cbBorderShow.addEventListener(flash.events.Event.CHANGE,_handleBorderVisibleChange);
 			_ui.cbCenterShow.addEventListener(flash.events.Event.CHANGE,_handleCenterPointVisibleChange);
+			_ui.cbHideSysObj.addEventListener(flash.events.Event.CHANGE,_handleHideSysObjChange);
+			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_locateCurrentArmature);
 			
 			state = STATE_INIT;
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
@@ -158,8 +159,11 @@ package
 			dfd.extensionFilter.push("png");
 			dfd.extensionFilter.push("dbswf");
 			
+			_clearInfo();
+			
 			dfd.onDrop.add(function():void{
 				_targetFile = dfd.lastDropFiles[0];
+				_clearInfo();
 				_loadAssets();
 			});
 			dfd.start();
@@ -230,11 +234,13 @@ package
 			var skeletonData:SkeletonData = _factory.getSkeletonData(_getFileId());
 			var armatureNames:Vector.<String> = skeletonData.armatureNames;
 			var arr:Array = [];
+			_addInfo("armatures len:"+armatureNames.length);
 			for(var i:int=0;i<armatureNames.length;i++)
 			{
 				var armatureName:String = armatureNames[i];
 				var temp:Array = armatureName.split("/");
 				var name:String = temp[temp.length-1];//ライブラリパスのディレクトリを除いたもの
+				_addInfo(armatureName);
 				if(_ui.cbLowercaseHide.selected)
 				{
 					var lc:Boolean = _hasLowerCase(name);
@@ -282,32 +288,34 @@ package
 			//trace(_ui.comboArmature.selectedLabel);
 			_removeArmature();
 			_createArmature(_ui.comboArmature.selectedLabel);
-			_updateComboAnimationSelection();
+			var defAnim:String = _updateComboAnimationSelection();
 			
-			if(_currentArm && _currentArm.animation && _currentArm.animation.animationList.length>0)
+			if(defAnim && _currentArm && _currentArm.animation && _currentArm.animation.animationList.length>0)
 			{
-				_currentArm.animation.gotoAndPlay(_currentArm.animation.animationList[0]);
+				_currentArm.animation.gotoAndPlay(defAnim);
 			}
 			
 			//_ui.sliderScale.value = 1.0;
 			_handleScaleChange();
+			_handleHideSysObjChange();
 			
 		}
 		
-		private function _handleAnimationChange(ev:flash.events.Event=null):void
+		private function _handleAnimationChange(ev:flash.events.Event=null,showLog:Boolean=true):void
 		{
-			trace(_ui.comboAnimation.selectedLabel);
+			//trace(_ui.comboAnimation.selectedLabel);
 			if(_currentArm && _currentArm.animation)
 			{
 				_currentArm.animation.stop();
 				_currentArm.animation.gotoAndPlay(_ui.comboAnimation.selectedLabel);
+				var state:AnimationState = _currentArm.animation.getState(_ui.comboAnimation.selectedLabel);
+				
+				if(showLog)
+				{
+					_addInfo("animation totalTime : "+(Math.floor(state.totalTime*1000)/1000)+" sec loop : "+(state.loop==0));
+				}
 			}
 		}
-		
-		//private function _handleBaePositionChange(ev:flash.events.Event):void
-		//{
-		//	_locateCurrentArmature();
-		//}
 		
 		private function _handleReplayClick(ev:flash.events.Event):void
 		{
@@ -336,12 +344,12 @@ package
 			_bgQuad.color = color;
 		}
 		
-		private function _handleLowercaseCheckChange(ev:flash.events.Event):void
+		private function _handleLowercaseCheckChange(ev:flash.events.Event=null):void
 		{
 			_startTest();
 		}
 		
-		private function _handleBorderVisibleChange(ev:flash.events.Event):void
+		private function _handleBorderVisibleChange(ev:flash.events.Event=null):void
 		{
 			_updateBorderQuad();
 		}
@@ -351,18 +359,61 @@ package
 			_centerQuad.visible = _ui.cbCenterShow.selected;
 		}
 		
-		private function _updateComboAnimationSelection():void
+		private function _handleHideSysObjChange(ev:flash.events.Event=null):void
 		{
+			var visibility:Boolean = !_ui.cbHideSysObj.selected;
+			if(_currentArm)
+			{
+				var bones:Vector.<Bone> = DragonBonesUtil.queryDescendantBonesByName(_currentArm,/^_+.+$/);
+				var i:int = bones.length;
+				//trace("bones",bones);
+				while(i--)
+				{
+					if(!bones[i].userData)
+					{
+						var trans:DBTransform = new DBTransform();
+						trans.copy(bones[i].origin);
+						bones[i].userData = trans;
+					}
+					if(visibility)
+					{
+						bones[i].origin.scaleX = DBTransform(bones[i].userData).scaleX;
+					}
+					else
+					{
+						bones[i].origin.scaleX = 0;
+					}
+				}
+				_handleAnimationChange(null,false);
+			}
+		}
+		
+		private function _updateComboAnimationSelection():String
+		{
+			var defAnim:String = "";
 			if(_currentArm)
 			{
 				var arr:Array = [];
+				var maxTime:Number = -1;
 				var anims:Vector.<String> = _currentArm.animation.animationList;
+				var index:int = 0;
+				
 				for(var i:int=0;i<anims.length;i++)
 				{
+					_currentArm.animation.gotoAndPlay(anims[i]);//一度再生しないとstateが取れない
+					_currentArm.animation.stop();					
+					var state:AnimationState = _currentArm.animation.getState(anims[i]);
+					trace(anims[i],state);
+					if(state && maxTime < state.totalTime)
+					{
+						maxTime = state.totalTime;
+						defAnim = anims[i];
+						index = i;
+					}
 					arr.push(anims[i]);
 				}
 				_ui.comboAnimation.dataProvider = new DataProvider(arr);
-				_ui.comboAnimation.selectedIndex = 0;
+				_ui.comboAnimation.selectedIndex = index;
 				_ui.comboAnimation.enabled = true;
 			}
 			else
@@ -371,6 +422,7 @@ package
 				_ui.comboAnimation.enabled = false;
 			}
 			
+			return defAnim;
 		}
 		
 		private function _removeArmature():void
@@ -409,41 +461,33 @@ package
 			}
 		}
 		
-		private function _locateCurrentArmature():void
+		private function _locateCurrentArmature(ev:flash.events.Event=null):void
 		{
 			if(_currentArm)
 			{
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
-				
 				dobj.x = 0;
 				dobj.y = 0;
-				var rect:Rectangle = dobj.getBounds(dobj.parent);
 				
-				//switch(true)
-				//{
-				//	case _ui.radio1.selected:
-				//	{
-				//		break;
-				//	}
-				//	case _ui.radio2.selected:
-				//	{
-				//		break;
-				//	}
-				//	case _ui.radio3.selected:
-				//	{
-				//		break;
-				//	}
-				//}
-				
-				dobj.x = _bgQuad.x +  ((BG_WIDTH - dobj.width) >> 1);
-				dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
-				dobj.x -= rect.x;
-				dobj.y -= rect.y;
+				if(_ui.radio1.selected)
+				{				
+					var rect:Rectangle = dobj.getBounds(dobj.parent);
+					dobj.x = _bgQuad.x +  ((BG_WIDTH - dobj.width) >> 1);
+					dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
+					dobj.x -= rect.x;
+					dobj.y -= rect.y;
+				}
+				else
+				{
+					dobj.x = _bgQuad.x;
+					dobj.y = _bgQuad.y;
+				}
 				
 				_updateBorderQuad();
 				
 				_centerQuad.x = dobj.x;
 				_centerQuad.y = dobj.y;
+				
 				_handleCenterPointVisibleChange();
 				_armatureHolder.addChild(_centerQuad);
 			}
@@ -472,6 +516,17 @@ package
 			_borderQuad.x = rect.x;
 			_borderQuad.y = rect.y;
 			
+		}
+		
+		private function _clearInfo():void
+		{
+			_ui.tfInfo.text = "";
+		}
+		
+		private function _addInfo(str:String):void
+		{
+			_ui.tfInfo.appendText(str+"\n");
+			_ui.tfInfo.scrollV = _ui.tfInfo.maxScrollV;
 		}
 		
 	}
