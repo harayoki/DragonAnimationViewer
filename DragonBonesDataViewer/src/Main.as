@@ -204,13 +204,12 @@ package
 				arr.push(armatureNames[i]);
 			}
 			_ui.comboArmature.dataProvider = new DataProvider(arr);
-			_createArmature(_ui.comboArmature.selectedLabel);
+			_ui.comboArmature.selectedIndex = 0;
 			
-			_updateComboAnimationSelection();
-			
+			_handleArmatureChange();			
 		}
 		
-		private function _handleArmatureChange(ev:flash.events.Event):void
+		private function _handleArmatureChange(ev:flash.events.Event=null):void
 		{
 			//trace(_ui.comboArmature.selectedLabel);
 			_removeArmature();
@@ -272,6 +271,7 @@ package
 					arr.push(anims[i]);
 				}
 				_ui.comboAnimation.dataProvider = new DataProvider(arr);
+				_ui.comboAnimation.selectedIndex = 0;
 				_ui.comboAnimation.enabled = true;
 			}
 			else
