@@ -118,6 +118,7 @@ package
 			_ui.cbCenterShow.addEventListener(flash.events.Event.CHANGE,_handleCenterPointVisibleChange);
 			_ui.cbHideSysObj.addEventListener(flash.events.Event.CHANGE,_handleHideSysObjChange);
 			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_locateCurrentArmature);
+			_ui.sliderSpeed.addEventListener(SliderEvent.CHANGE,_handleSpeedChange);
 			
 			state = STATE_INIT;
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
@@ -307,8 +308,10 @@ package
 			if(_currentArm && _currentArm.animation)
 			{
 				_currentArm.animation.stop();
-				_currentArm.animation.gotoAndPlay(_ui.comboAnimation.selectedLabel);
+				_currentArm.animation.gotoAndPlay(_ui.comboAnimation.selectedLabel)
 				var state:AnimationState = _currentArm.animation.getState(_ui.comboAnimation.selectedLabel);
+				var duration:Number = state.totalTime * _ui.sliderSpeed.value * 0.01;
+				_currentArm.animation.gotoAndPlay(_ui.comboAnimation.selectedLabel,-1,duration);
 				
 				if(showLog)
 				{
@@ -336,6 +339,12 @@ package
 				_locateCurrentArmature();
 				
 			}
+		}
+		
+		private function _handleSpeedChange(ev:SliderEvent=null):void
+		{
+			_ui.txtSpeed.text = _ui.sliderSpeed.value +"";
+			_handleAnimationChange(null,false);
 		}
 		
 		private function _handleBgColorChange(ev:ColorPickerEvent):void
@@ -403,7 +412,7 @@ package
 					_currentArm.animation.gotoAndPlay(anims[i]);//一度再生しないとstateが取れない
 					_currentArm.animation.stop();					
 					var state:AnimationState = _currentArm.animation.getState(anims[i]);
-					trace(anims[i],state);
+					//trace(anims[i],state);
 					if(state && maxTime < state.totalTime)
 					{
 						maxTime = state.totalTime;
