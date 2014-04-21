@@ -56,6 +56,7 @@ package
 		private var _bgQuad:Quad;
 		private var _borderQuad:Quad;
 		private var _centerQuad:Quad;
+		private var _armatureHolder:starling.display.Sprite;
 		
 		private var _state:int = -1;
 		private static const STATE_INIT:int = 0;
@@ -96,9 +97,10 @@ package
 			
 			_ui.comboArmature.enabled = _state != STATE_INIT;
 			_ui.comboAnimation.enabled = _state != STATE_INIT;
-			_ui.radio1.enabled = 
-				_ui.radio2.enabled = 
-				_ui.radio3.enabled =  _state != STATE_INIT;
+			//_ui.radio1.enabled = 
+			//	_ui.radio2.enabled = 
+			//	_ui.radio3.enabled =  _state != STATE_INIT;
+			
 		}
 		
 		public function Main()
@@ -107,7 +109,7 @@ package
 			Objects.rootSprite.addChild(_ui);
 			_ui.comboArmature.addEventListener(flash.events.Event.CHANGE,_handleArmatureChange);
 			_ui.comboAnimation.addEventListener(flash.events.Event.CHANGE,_handleAnimationChange);
-			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleBaePositionChange);
+			//_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_handleBaePositionChange);
 			_ui.btnReplay.addEventListener(MouseEvent.CLICK,_handleReplayClick);
 			_ui.sliderScale.addEventListener(SliderEvent.CHANGE,_handleScaleChange);
 			_handleScaleChange();
@@ -133,12 +135,19 @@ package
 			_bgQuad.y = 0;
 			addChild(_bgQuad);
 			
-			_centerQuad = new Quad(8,8,0xccccff);
+			_armatureHolder = new starling.display.Sprite();
+			_armatureHolder.x = 0;
+			_armatureHolder.y = 0;
+			_armatureHolder.clipRect = _bgQuad.getBounds(_bgQuad.parent);
+			addChild(_armatureHolder);
+			
+			_centerQuad = new Quad(4,4,0x333399);
 			_centerQuad.x = 0;
 			_centerQuad.y = 0;
-			_centerQuad.pivotX = -4;
-			_centerQuad.pivotY = -4;
-			addChild(_centerQuad);			
+			_centerQuad.pivotX = -_centerQuad.width*0.5;
+			_centerQuad.pivotY = -_centerQuad.height*0.5;
+			_centerQuad.rotation = Math.PI*0.25;
+			_armatureHolder.addChild(_centerQuad);			
 			_handleStageResize();
 			
 			var self:starling.display.Sprite = this;
@@ -295,11 +304,10 @@ package
 			}
 		}
 		
-		private function _handleBaePositionChange(ev:flash.events.Event):void
-		{
-			trace(_ui.radio1.group.selection.label);
-			_locateCurrentArmature();
-		}
+		//private function _handleBaePositionChange(ev:flash.events.Event):void
+		//{
+		//	_locateCurrentArmature();
+		//}
 		
 		private function _handleReplayClick(ev:flash.events.Event):void
 		{
@@ -317,7 +325,7 @@ package
 				(_currentArm.display as DisplayObject).scaleX = _ui.sliderScale.value;
 				(_currentArm.display as DisplayObject).scaleY = _ui.sliderScale.value;
 				
-				_updateBorderQuad();
+				_locateCurrentArmature();
 				
 			}
 		}
@@ -396,7 +404,7 @@ package
 				_currentArm = arm;
 				WorldClock.clock.add(arm);
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
-				addChild(dobj);
+				_armatureHolder.addChild(dobj);
 				_locateCurrentArmature();
 			}
 		}
@@ -406,42 +414,38 @@ package
 			if(_currentArm)
 			{
 				var dobj:DisplayObject = _currentArm.display as DisplayObject;
+				
+				dobj.x = 0;
+				dobj.y = 0;
 				var rect:Rectangle = dobj.getBounds(dobj.parent);
 				
-				switch(true)
-				{
-					case _ui.radio1.selected:
-					{
-						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
-						dobj.y = _bgQuad.y + (BG_HEIGHT >> 1);
-						//dobj.pivotX = dobj.width >> 1;
-						//dobj.pivotY = dobj.height >> 1;
-						break;
-					}
-					case _ui.radio2.selected:
-					{
-						dobj.x = _bgQuad.x +  ((BG_WIDTH - dobj.width) >> 1);
-						dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
-						dobj.pivotX = 0;
-						dobj.pivotY = 0;
-						break;
-					}
-					case _ui.radio3.selected:
-					{
-						dobj.x = _bgQuad.x + (BG_WIDTH >> 1);
-						dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
-							//dobj.pivotX = dobj.width >> 1;
-							//dobj.y +=  dobj.height;
-						break;
-					}
-				}
+				//switch(true)
+				//{
+				//	case _ui.radio1.selected:
+				//	{
+				//		break;
+				//	}
+				//	case _ui.radio2.selected:
+				//	{
+				//		break;
+				//	}
+				//	case _ui.radio3.selected:
+				//	{
+				//		break;
+				//	}
+				//}
+				
+				dobj.x = _bgQuad.x +  ((BG_WIDTH - dobj.width) >> 1);
+				dobj.y = _bgQuad.y + ((BG_HEIGHT - dobj.height) >> 1);
+				dobj.x -= rect.x;
+				dobj.y -= rect.y;
 				
 				_updateBorderQuad();
 				
 				_centerQuad.x = dobj.x;
 				_centerQuad.y = dobj.y;
 				_handleCenterPointVisibleChange();
-				addChild(_centerQuad);
+				_armatureHolder.addChild(_centerQuad);
 			}
 		}
 		
@@ -461,9 +465,9 @@ package
 			var rect:Rectangle = dobj.getBounds(dobj.parent);
 			
 			_borderQuad = new Quad(rect.width,rect.height,0xff0000);
-			_borderQuad.alpha = 0.2;
+			_borderQuad.alpha = 0.1;
 			
-			addChildAt(_borderQuad,getChildIndex(dobj));
+			_armatureHolder.addChildAt(_borderQuad,_armatureHolder.getChildIndex(dobj));
 			
 			_borderQuad.x = rect.x;
 			_borderQuad.y = rect.y;
