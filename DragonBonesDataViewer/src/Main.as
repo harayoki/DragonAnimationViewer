@@ -233,41 +233,48 @@ package
 		{
 			state = STATE_ARMATURE_VIEW;
 			var skeletonData:SkeletonData = _factory.getSkeletonData(_getFileId());
-			var armatureNames:Vector.<String> = skeletonData.armatureNames;
-			var arr:Array = [];
-			_addInfo("armatures len:"+armatureNames.length);
-			for(var i:int=0;i<armatureNames.length;i++)
+			if(skeletonData)
 			{
-				var armatureName:String = armatureNames[i];
-				var temp:Array = armatureName.split("/");
-				var name:String = temp[temp.length-1];//ライブラリパスのディレクトリを除いたもの
-				_addInfo(armatureName);
-				if(_ui.cbLowercaseHide.selected)
+				var armatureNames:Vector.<String> = skeletonData.armatureNames;
+				var arr:Array = [];
+				_addInfo("armatures len:"+armatureNames.length);
+				for(var i:int=0;i<armatureNames.length;i++)
 				{
-					var lc:Boolean = _hasLowerCase(name);
-					if(!lc)
+					var armatureName:String = armatureNames[i];
+					var temp:Array = armatureName.split("/");
+					var name:String = temp[temp.length-1];//ライブラリパスのディレクトリを除いたもの
+					_addInfo(armatureName);
+					if(_ui.cbLowercaseHide.selected)
+					{
+						var lc:Boolean = _hasLowerCase(name);
+						if(!lc)
+						{
+							arr.push(armatureName);
+						}
+					}
+					else
 					{
 						arr.push(armatureName);
 					}
 				}
+				
+				if(arr.length>0)
+				{
+					_ui.comboArmature.dataProvider = new DataProvider(arr);
+					_ui.comboArmature.selectedIndex = 0;
+				}
 				else
 				{
-					arr.push(armatureName);
+					_ui.comboArmature.dataProvider = new DataProvider([]);
+					_ui.comboArmature.selectedIndex = 0;
 				}
-			}
-			
-			if(arr.length>0)
-			{
-				_ui.comboArmature.dataProvider = new DataProvider(arr);
-				_ui.comboArmature.selectedIndex = 0;
+				
+				_handleArmatureChange();			
 			}
 			else
 			{
-				_ui.comboArmature.dataProvider = new DataProvider([]);
-				_ui.comboArmature.selectedIndex = 0;
+				_addInfo("ERROR - can not find skeleton data id : "+_getFileId());
 			}
-			
-			_handleArmatureChange();			
 		}
 		
 		private function _hasLowerCase(str:String):Boolean
