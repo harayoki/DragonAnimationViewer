@@ -9,6 +9,7 @@ package
 	import flash.filesystem.File;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
+	import flash.utils.setTimeout;
 	
 	import dragonBones.Armature;
 	import dragonBones.Bone;
@@ -48,7 +49,7 @@ package
 		private static var _starling:Starling;
 		
 		private var _assetManager:AssetManager;
-		private var _factory:StarlingFactory;		
+		private var _factory:MyStarlingFactory;		
 		
 		private var _catCount:int = 0;
 		private var _countTf:TextField;
@@ -119,6 +120,8 @@ package
 			_ui.cbHideSysObj.addEventListener(flash.events.Event.CHANGE,_handleHideSysObjChange);
 			_ui.radio1.group.addEventListener(flash.events.Event.CHANGE,_locateCurrentArmature);
 			_ui.sliderSpeed.addEventListener(SliderEvent.CHANGE,_handleSpeedChange);
+			
+			_hideErrorAndCaution();
 			
 			state = STATE_INIT;
 			addEventListener(starling.events.Event.ADDED_TO_STAGE,_handleAddedToStage);
@@ -217,7 +220,7 @@ package
 			{
 				_factory.dispose(true);
 			}
-			_factory = new StarlingFactory();			
+			_factory = new MyStarlingFactory();			
 			_factory.addEventListener(flash.events.Event.COMPLETE, handleParseComplete);
 			_factory.parseData(_assetManager.getByteArray(_getFileId()));
 
@@ -232,7 +235,19 @@ package
 		private function _startTest():void
 		{
 			state = STATE_ARMATURE_VIEW;
-			var skeletonData:SkeletonData = _factory.getSkeletonData(_getFileId());
+			
+			var skeletonData:SkeletonData;
+			var skeletonName:String;
+			
+			skeletonName = _getFileId();
+			skeletonData = _factory.getSkeletonData(skeletonName);
+			if(!skeletonData)
+			{
+				_showCaution("can not find skeleton data id : "+_getFileId());
+				skeletonName = _factory.xGetSkeletonDataNames()[0];
+				skeletonData = _factory.getSkeletonData(skeletonName);
+			}
+			
 			if(skeletonData)
 			{
 				var armatureNames:Vector.<String> = skeletonData.armatureNames;
@@ -273,7 +288,7 @@ package
 			}
 			else
 			{
-				_addInfo("ERROR - can not find skeleton data id : "+_getFileId());
+				_showError("ERROR - can not create armature");
 			}
 		}
 		
@@ -545,5 +560,48 @@ package
 			_ui.tfInfo.scrollV = _ui.tfInfo.maxScrollV;
 		}
 		
+		private function _hideErrorAndCaution():void
+		{
+			_ui.cautionView.visible = false;
+			_ui.errorView.visible = false;
+		}
+		
+		private function _showCaution(txt:String):void
+		{
+			_ui.cautionView.txt.text = txt;
+			_ui.cautionView.visible = true;
+			setTimeout(function():void{
+				_ui.cautionView.visible = false;
+			},5000);
+		}
+		private function _showError(txt:String):void
+		{
+			_ui.errorView.txt.text = txt;
+			_ui.errorView.visible = true;
+			setTimeout(function():void{
+				_ui.errorView.visible = false;
+			},5000);
+		}
+		
 	}
 }
+import dragonBones.factorys.StarlingFactory;
+
+internal class MyStarlingFactory extends StarlingFactory
+{
+	public function MyStarlingFactory()
+	{
+		super();
+	}
+	
+	public function xGetSkeletonDataNames():Vector.<String>
+	{
+		var v:Vector.<String> = new Vector.<String>();
+		for(var name:String in _dataDic)
+		{
+			v.push(name);
+		}
+		return v;
+	}
+}
+
