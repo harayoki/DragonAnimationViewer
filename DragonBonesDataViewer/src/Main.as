@@ -77,6 +77,7 @@ package
 			
 			Objects.stage.align = StageAlign.TOP_LEFT;
 			Objects.stage.scaleMode = StageScaleMode.NO_SCALE;
+			Objects.stage.frameRate = 60;
 			Starling.handleLostContext = true;
 			
 			_starling = new Starling(Main,Objects.stage,new Rectangle(0,0,CONTENTS_WIDTH,CONTENTS_HEIGHT));
